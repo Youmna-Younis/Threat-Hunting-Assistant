@@ -1,0 +1,124 @@
+{
+  "events": [
+    {
+      "event_id": "evt_001",
+      "timestamp": "2024-01-15 10:30:00",
+      "event_type": "process_create",
+      "source": {"type": "process", "id": "proc_001", "name": "explorer.exe", "host": "DESKTOP-ABC123"},
+      "target": {"type": "process", "id": "proc_002", "name": "powershell.exe", "host": "DESKTOP-ABC123"},
+      "action": "SPAWNED"
+    },
+    {
+      "event_id": "evt_002",
+      "timestamp": "2024-01-15 10:30:05",
+      "event_type": "user_login",
+      "source": {"type": "user", "id": "user_001", "name": "ALICE", "host": "DESKTOP-ABC123"},
+      "target": {"type": "host", "id": "host_001", "name": "DESKTOP-ABC123", "host": "DESKTOP-ABC123"},
+      "action": "LOGGED_INTO"
+    },
+    {
+      "event_id": "evt_003",
+      "timestamp": "2024-01-15 10:30:10",
+      "event_type": "process_create",
+      "source": {"type": "process", "id": "proc_002", "name": "powershell.exe", "host": "DESKTOP-ABC123"},
+      "target": {"type": "process", "id": "proc_003", "name": "cmd.exe", "host": "DESKTOP-ABC123"},
+      "action": "SPAWNED"
+    },
+    {
+      "event_id": "evt_004",
+      "timestamp": "2024-01-15 10:30:15",
+      "event_type": "file_write",
+      "source": {"type": "process", "id": "proc_002", "name": "powershell.exe", "host": "DESKTOP-ABC123"},
+      "target": {"type": "file", "id": "file_001", "name": "malware.exe", "host": "DESKTOP-ABC123"},
+      "action": "WROTE_TO"
+    },
+    {
+      "event_id": "evt_005",
+      "timestamp": "2024-01-15 10:30:20",
+      "event_type": "network_connect",
+      "source": {"type": "process", "id": "proc_002", "name": "powershell.exe", "host": "DESKTOP-ABC123"},
+      "target": {"type": "network", "id": "net_001", "name": "45.33.22.11:80", "host": "EXTERNAL"},
+      "action": "CONNECTED_TO"
+    },
+    {
+      "event_id": "evt_006",
+      "timestamp": "2024-01-15 10:30:25",
+      "event_type": "process_create",
+      "source": {"type": "file", "id": "file_001", "name": "malware.exe", "host": "DESKTOP-ABC123"},
+      "target": {"type": "process", "id": "proc_004", "name": "ransomware.exe", "host": "DESKTOP-ABC123"},
+      "action": "SPAWNED"
+    },
+    {
+      "event_id": "evt_007",
+      "timestamp": "2024-01-15 10:30:30",
+      "event_type": "process_create",
+      "source": {"type": "process", "id": "proc_003", "name": "cmd.exe", "host": "DESKTOP-ABC123"},
+      "target": {"type": "process", "id": "proc_005", "name": "whoami.exe", "host": "DESKTOP-ABC123"},
+      "action": "SPAWNED"
+    },
+    {
+      "event_id": "evt_008",
+      "timestamp": "2024-01-15 10:30:35",
+      "event_type": "user_login",
+      "source": {"type": "user", "id": "user_002", "name": "BOB", "host": "DESKTOP-ABC123"},
+      "target": {"type": "host", "id": "host_001", "name": "DESKTOP-ABC123", "host": "DESKTOP-ABC123"},
+      "action": "LOGGED_INTO"
+    },
+    {
+      "event_id": "evt_009",
+      "timestamp": "2024-01-15 10:30:40",
+      "event_type": "file_read",
+      "source": {"type": "process", "id": "proc_004", "name": "ransomware.exe", "host": "DESKTOP-ABC123"},
+      "target": {"type": "file", "id": "file_002", "name": "secrets.txt", "host": "DESKTOP-ABC123"},
+      "action": "READ_FILE"
+    },
+    {
+      "event_id": "evt_010",
+      "timestamp": "2024-01-15 10:30:45",
+      "event_type": "network_connect",
+      "source": {"type": "process", "id": "proc_004", "name": "ransomware.exe", "host": "DESKTOP-ABC123"},
+      "target": {"type": "network", "id": "net_002", "name": "192.168.1.50:445", "host": "SERVER-DB"},
+      "action": "CONNECTED_TO"
+    },
+    {
+      "event_id": "evt_011",
+      "timestamp": "2024-01-15 10:30:50",
+      "event_type": "user_login",
+      "source": {"type": "user", "id": "user_003", "name": "CHARLIE", "host": "SERVER-DB"},
+      "target": {"type": "host", "id": "host_002", "name": "SERVER-DB", "host": "SERVER-DB"},
+      "action": "LOGGED_INTO"
+    },
+    {
+      "event_id": "evt_012",
+      "timestamp": "2024-01-15 10:30:55",
+      "event_type": "file_download",
+      "source": {"type": "network", "id": "net_001", "name": "45.33.22.11:80", "host": "EXTERNAL"},
+      "target": {"type": "file", "id": "file_003", "name": "payload.ps1", "host": "DESKTOP-ABC123"},
+      "action": "DOWNLOADED"
+    },
+    {
+      "event_id": "evt_013",
+      "timestamp": "2024-01-15 10:31:00",
+      "event_type": "permission_change",
+      "source": {"type": "process", "id": "proc_004", "name": "ransomware.exe", "host": "DESKTOP-ABC123"},
+      "target": {"type": "file", "id": "file_002", "name": "secrets.txt", "host": "DESKTOP-ABC123"},
+      "action": "MODIFIED_PERMISSIONS"
+    },
+    {
+      "event_id": "evt_014",
+      "timestamp": "2024-01-15 10:31:05",
+      "event_type": "file_delete",
+      "source": {"type": "process", "id": "proc_003", "name": "cmd.exe", "host": "DESKTOP-ABC123"},
+      "target": {"type": "file", "id": "file_004", "name": "log_cleaner.bat", "host": "DESKTOP-ABC123"},
+      "action": "DELETED"
+    },
+    {
+      "event_id": "evt_015",
+      "timestamp": "2024-01-15 10:31:10",
+      "event_type": "network_connect",
+      "source": {"type": "process", "id": "proc_005", "name": "whoami.exe", "host": "DESKTOP-ABC123"},
+      "target": {"type": "network", "id": "net_003", "name": "10.0.0.1:22", "host": "INTERNAL-GW"},
+      "action": "CONNECTED_TO"
+    }
+  ]
+}
