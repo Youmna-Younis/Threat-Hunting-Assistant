@@ -1,0 +1,1666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Threat Hunting Assistant</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;400;500;600;700&family=Orbitron:wght@400;700;900&display=swap');
+
+  :root {
+    --bg:       #05080f;
+    --surface:  #0b1120;
+    --panel:    #0f1929;
+    --border:   #1a2d4a;
+    --accent:   #00d4ff;
+    --accent2:  #ff4757;
+    --accent3:  #2ed573;
+    --accent4:  #ffa502;
+    --accent5:  #a29bfe;
+    --text:     #c8d8f0;
+    --dim:      #4a6080;
+    --glow:     0 0 20px rgba(0,212,255,0.3);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 15px;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+  }
+  header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, rgba(0,212,255,0.04) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .logo {
+    font-family: 'Orbitron', monospace;
+    font-size: 18px;
+    font-weight: 900;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-shadow: var(--glow);
+    white-space: nowrap;
+  }
+  .logo span { color: var(--accent2); }
+  .header-stats {
+    display: flex;
+    gap: 20px;
+    margin-left: auto;
+  }
+  .stat-chip {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .stat-chip b { color: var(--accent); font-size: 13px; }
+
+  /* ── Layout ── */
+  .app {
+    display: grid;
+    grid-template-columns: 280px 1fr 320px;
+    grid-template-rows: 1fr 220px;
+    gap: 1px;
+    background: var(--border);
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .panel {
+    background: var(--panel);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panel-header {
+    padding: 8px 14px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .panel-header .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* ── Left panel: Controls ── */
+  #controls {
+    grid-row: 1 / 3;
+    padding: 14px;
+    overflow-y: auto;
+    gap: 14px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .section-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+
+  /* Log loader */
+  .log-drop {
+    border: 1px dashed var(--border);
+    border-radius: 4px;
+    padding: 14px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: rgba(0,212,255,0.02);
+  }
+  .log-drop:hover { border-color: var(--accent); background: rgba(0,212,255,0.06); }
+  .log-drop.active { border-color: var(--accent3); background: rgba(46,213,115,0.06); }
+  .log-drop-icon { font-size: 22px; margin-bottom: 6px; }
+  .log-drop p { font-size: 12px; color: var(--dim); }
+  #fileInput { display: none; }
+
+  /* Or use sample */
+  .sample-btn {
+    width: 100%;
+    padding: 8px;
+    background: rgba(0,212,255,0.07);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--accent);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+  }
+  .sample-btn:hover { background: rgba(0,212,255,0.15); border-color: var(--accent); }
+
+  /* Node selector */
+  select, input[type=range], input[type=number] {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    padding: 7px 10px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  select:focus, input:focus { border-color: var(--accent); }
+  select option { background: var(--surface); }
+
+  input[type=range] {
+    padding: 4px 0;
+    accent-color: var(--accent);
+  }
+
+  /* Algorithm buttons */
+  .algo-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .algo-btn {
+    padding: 10px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-family: 'Orbitron', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .algo-btn:hover { transform: translateY(-1px); }
+  .algo-btn.bfs   { --c: var(--accent);  }
+  .algo-btn.dfs   { --c: var(--accent3); }
+  .algo-btn.ucs   { --c: var(--accent4); }
+  .algo-btn.astar { --c: var(--accent5); }
+  .algo-btn:hover, .algo-btn.active {
+    border-color: var(--c);
+    background: rgba(255,255,255,0.04);
+    color: var(--c);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--c) 30%, transparent);
+  }
+  .algo-btn .algo-name { font-size: 11px; font-weight: bold; }
+  .algo-btn .algo-desc { font-size: 8px; color: var(--dim); margin-top: 2px; letter-spacing: 0.5px; }
+
+  /* Run button */
+  .run-btn {
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(135deg, rgba(0,212,255,0.15), rgba(0,212,255,0.05));
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    color: var(--accent);
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    letter-spacing: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-shadow: 0 0 10px var(--accent);
+  }
+  .run-btn:hover {
+    background: linear-gradient(135deg, rgba(0,212,255,0.25), rgba(0,212,255,0.1));
+    box-shadow: var(--glow);
+  }
+  .run-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  /* Node list */
+  .node-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    max-height: 160px;
+    overflow-y: auto;
+  }
+  .node-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    background: var(--surface);
+    border-radius: 3px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 12px;
+  }
+  .node-chip:hover { border-color: var(--border); }
+  .node-chip.selected { border-color: var(--accent); background: rgba(0,212,255,0.08); }
+  .type-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .node-chip-name { font-family: 'Share Tech Mono', monospace; font-size: 11px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .node-chip-type { font-size: 9px; color: var(--dim); }
+
+  /* ── Center: Graph Canvas ── */
+  #graph-panel {
+    grid-row: 1;
+    grid-column: 2;
+    position: relative;
+  }
+  #graph-canvas {
+    width: 100%;
+    height: 100%;
+    cursor: grab;
+  }
+  #graph-canvas:active { cursor: grabbing; }
+
+  .graph-overlay {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .overlay-btn {
+    width: 32px; height: 32px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--dim);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all 0.2s;
+  }
+  .overlay-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .graph-hint {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    color: var(--dim);
+    font-family: 'Share Tech Mono', monospace;
+    pointer-events: none;
+  }
+
+  /* Legend */
+  .graph-legend {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background: rgba(11,17,32,0.85);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: var(--dim);
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  /* ── Right panel: Results ── */
+  #results-panel {
+    grid-row: 1 / 3;
+    grid-column: 3;
+    overflow-y: auto;
+    padding: 12px;
+    gap: 10px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .result-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    animation: slideIn 0.3s ease;
+  }
+  @keyframes slideIn { from { opacity:0; transform: translateY(8px) } }
+
+  .result-card-header {
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    font-family: 'Orbitron', monospace;
+    letter-spacing: 1px;
+  }
+  .result-card-body { padding: 10px 12px; }
+
+  .path-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 6px;
+  }
+  .path-node {
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    border: 1px solid;
+  }
+  .path-arrow { color: var(--dim); font-size: 12px; }
+
+  .chain-step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(26,45,74,0.5);
+    font-size: 11px;
+  }
+  .chain-step:last-child { border-bottom: none; }
+  .chain-ts { font-family: 'Share Tech Mono', monospace; font-size: 9px; color: var(--dim); min-width: 70px; }
+  .chain-action { font-family: 'Share Tech Mono', monospace; font-size: 9px; padding: 1px 5px; border-radius: 2px; }
+
+  .priority-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(26,45,74,0.5);
+  }
+  .priority-row:last-child { border-bottom: none; }
+  .priority-badge {
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-family: 'Orbitron', monospace;
+    letter-spacing: 1px;
+    flex-shrink: 0;
+  }
+  .priority-info { flex: 1; }
+  .priority-target { font-family: 'Share Tech Mono', monospace; font-size: 11px; }
+  .priority-cost { font-size: 10px; color: var(--dim); margin-top: 2px; }
+  .cost-bar-wrap { margin-top: 4px; }
+  .cost-bar { height: 3px; border-radius: 2px; transition: width 0.5s ease; }
+
+  .depth-section { margin-bottom: 8px; }
+  .depth-title { font-size: 10px; color: var(--dim); font-family: 'Share Tech Mono', monospace; margin-bottom: 4px; }
+  .depth-nodes { display: flex; flex-wrap: wrap; gap: 4px; }
+  .depth-node { padding: 2px 7px; border-radius: 3px; font-family: 'Share Tech Mono', monospace; font-size: 10px; border: 1px solid; }
+
+  /* ── Bottom: Trace Log ── */
+  #trace-panel {
+    grid-row: 2;
+    grid-column: 2;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  #trace-log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 14px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    line-height: 1.7;
+  }
+  .trace-line {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    animation: fadeIn 0.15s ease;
+    border-left: 2px solid transparent;
+    padding-left: 6px;
+    margin-bottom: 1px;
+  }
+  @keyframes fadeIn { from { opacity: 0 } }
+  .trace-line.visit  { border-color: var(--accent); }
+  .trace-line.skip   { border-color: var(--dim); opacity: 0.5; }
+  .trace-line.goal   { border-color: var(--accent3); }
+  .trace-line.push   { border-color: var(--accent4); }
+  .trace-line.pop    { border-color: var(--accent5); }
+  .trace-line.info   { border-color: transparent; }
+  .trace-idx { color: var(--dim); min-width: 28px; text-align: right; font-size: 9px; padding-top: 2px; }
+  .trace-text { flex: 1; color: var(--text); }
+  .trace-text .kw { color: var(--accent4); }
+  .trace-text .node-ref { color: var(--accent); }
+  .trace-text .goal-ref { color: var(--accent3); }
+  .trace-text .skip-ref { color: var(--dim); }
+  .trace-text .cost-ref { color: var(--accent5); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--dim); }
+
+  /* Speed slider label */
+  .speed-row { display: flex; align-items: center; gap: 8px; }
+  .speed-row label { font-size: 11px; color: var(--dim); white-space: nowrap; }
+  .speed-val { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--accent); min-width: 28px; }
+
+  /* Empty state */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 10px;
+    color: var(--dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+  }
+  .empty-icon { font-size: 36px; opacity: 0.3; }
+
+  /* Algo comparison bar */
+  .compare-bar {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-top: 4px;
+  }
+  .compare-label { font-size: 9px; color: var(--dim); min-width: 40px; font-family: 'Share Tech Mono', monospace; }
+  .compare-seg { height: 6px; border-radius: 3px; }
+
+  .tag { padding: 1px 5px; border-radius: 2px; font-size: 9px; font-family: 'Orbitron', monospace; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">THREAT<span>HUNT</span> // ASSISTANT</div>
+  <div class="header-stats">
+    <div class="stat-chip">NODES <b id="hdr-nodes">0</b></div>
+    <div class="stat-chip">EDGES <b id="hdr-edges">0</b></div>
+    <div class="stat-chip">ALGO <b id="hdr-algo">—</b></div>
+    <div class="stat-chip">STATUS <b id="hdr-status" style="color:var(--dim)">IDLE</b></div>
+  </div>
+</header>
+
+<div class="app">
+
+  <!-- LEFT: Controls -->
+  <div class="panel" id="controls-panel">
+    <div class="panel-header"><div class="dot"></div>CONTROL PANEL</div>
+    <div id="controls">
+
+      <!-- Log loading -->
+      <div>
+        <div class="section-label">// Load Log</div>
+        <div class="log-drop" id="logDrop" onclick="document.getElementById('fileInput').click()">
+          <div class="log-drop-icon">📂</div>
+          <p>Drop JSON / CSV log here</p>
+          <p style="margin-top:4px;font-size:10px">or click to browse</p>
+        </div>
+        <input type="file" id="fileInput" accept=".json,.csv">
+        <div style="margin-top:6px">
+          <button class="sample-btn" onclick="loadSampleLog()">▶ Load Sample Incident</button>
+        </div>
+      </div>
+
+      <!-- Node selector -->
+      <div>
+        <div class="section-label">// Start Node</div>
+        <select id="nodeSelect">
+          <option value="">— select a node —</option>
+        </select>
+      </div>
+
+      <!-- Algorithm -->
+      <div>
+        <div class="section-label">// Algorithm</div>
+        <div class="algo-grid">
+          <button class="algo-btn bfs active" onclick="selectAlgo('bfs',this)">
+            <div class="algo-name">BFS</div>
+            <div class="algo-desc">BLAST RADIUS</div>
+          </button>
+          <button class="algo-btn dfs" onclick="selectAlgo('dfs',this)">
+            <div class="algo-name">DFS</div>
+            <div class="algo-desc">ATTACK CHAIN</div>
+          </button>
+          <button class="algo-btn ucs" onclick="selectAlgo('ucs',this)">
+            <div class="algo-name">UCS</div>
+            <div class="algo-desc">CHEAPEST PATH</div>
+          </button>
+          <button class="algo-btn astar" onclick="selectAlgo('astar',this)">
+            <div class="algo-name">A*</div>
+            <div class="algo-desc">HEURISTIC</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Params -->
+      <div>
+        <div class="section-label">// Parameters</div>
+        <div style="margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <span style="font-size:11px;color:var(--dim)">Max Depth</span>
+            <span style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--accent)" id="depthVal">3</span>
+          </div>
+          <input type="range" min="1" max="10" value="3" id="depthSlider" oninput="document.getElementById('depthVal').textContent=this.value">
+        </div>
+        <div class="speed-row">
+          <label>Trace Speed</label>
+          <input type="range" min="1" max="5" value="3" id="speedSlider" oninput="updateSpeed(this.value)" style="flex:1">
+          <span class="speed-val" id="speedVal">3</span>
+        </div>
+      </div>
+
+      <!-- A* heuristic (shown only for A*) -->
+      <div id="heuristicSection" style="display:none">
+        <div class="section-label">// Heuristic</div>
+        <select id="heuristicSelect">
+          <option value="suspiciousness">Suspiciousness</option>
+          <option value="hop_count">Hop Count</option>
+        </select>
+      </div>
+
+      <!-- Run -->
+      <button class="run-btn" id="runBtn" onclick="runAlgo()" disabled>▶ EXECUTE</button>
+
+      <!-- Node list -->
+      <div>
+        <div class="section-label">// Nodes in Graph</div>
+        <div class="node-list" id="nodeList">
+          <div class="empty-state" style="height:60px;font-size:10px">no graph loaded</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- CENTER: Graph Canvas -->
+  <div class="panel" id="graph-panel">
+    <div class="panel-header"><div class="dot" style="background:var(--accent3);box-shadow:0 0 8px var(--accent3)"></div>GRAPH VISUALIZATION</div>
+    <canvas id="graph-canvas"></canvas>
+    <div class="graph-overlay">
+      <button class="overlay-btn" title="Zoom in" onclick="zoom(1.2)">+</button>
+      <button class="overlay-btn" title="Zoom out" onclick="zoom(0.8)">−</button>
+      <button class="overlay-btn" title="Reset view" onclick="resetView()">⌂</button>
+    </div>
+    <div class="graph-legend" id="graphLegend" style="display:none">
+      <div class="legend-item"><span class="type-dot" style="background:#00d4ff"></span>process</div>
+      <div class="legend-item"><span class="type-dot" style="background:#ffa502"></span>file</div>
+      <div class="legend-item"><span class="type-dot" style="background:#2ed573"></span>user</div>
+      <div class="legend-item"><span class="type-dot" style="background:#ff4757"></span>network</div>
+      <div class="legend-item"><span class="type-dot" style="background:#a29bfe"></span>host</div>
+    </div>
+    <div class="graph-hint" id="graphHint">load a log to begin</div>
+  </div>
+
+  <!-- RIGHT: Results -->
+  <div class="panel" id="results-panel">
+    <div class="panel-header"><div class="dot" style="background:var(--accent4);box-shadow:0 0 8px var(--accent4)"></div>ANALYSIS RESULTS</div>
+    <div id="results-content" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px">
+      <div class="empty-state">
+        <div class="empty-icon">🔍</div>
+        <div>Run an algorithm to<br>see results here</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM: Trace log -->
+  <div class="panel" id="trace-panel">
+    <div class="panel-header">
+      <div class="dot" style="background:var(--accent5);box-shadow:0 0 8px var(--accent5)"></div>
+      ALGORITHM TRACE
+      <button onclick="clearTrace()" style="margin-left:auto;background:none;border:1px solid var(--border);color:var(--dim);font-size:10px;padding:2px 8px;border-radius:3px;cursor:pointer;font-family:'Share Tech Mono',monospace">CLEAR</button>
+    </div>
+    <div id="trace-log">
+      <div class="trace-line info"><span class="trace-idx">—</span><span class="trace-text" style="color:var(--dim)">Awaiting algorithm execution...</span></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  DATA MODEL
+// ═══════════════════════════════════════════════════════════════════
+const TYPE_COLORS = {
+  process: '#00d4ff',
+  file:    '#ffa502',
+  user:    '#2ed573',
+  network: '#ff4757',
+  host:    '#a29bfe',
+};
+
+const COST_CONFIG = {
+  SPAWNED: 1, LOGGED_INTO: 2, READ_FILE: 1, WROTE_TO: 3,
+  CONNECTED_TO: 5, DOWNLOADED: 4, DELETED: 1, MODIFIED_PERMISSIONS: 3,
+};
+
+const SUSPICIOUS_PROC = new Set(['powershell.exe','cmd.exe','wscript.exe','cscript.exe','mshta.exe','nc.exe','ncat.exe','mimikatz.exe','ransomware.exe','malware.exe','whoami.exe']);
+const SUSPICIOUS_EXT  = ['.exe','.ps1','.bat','.vbs','.hta'];
+
+let graph = { nodes: {}, outEdges: {}, inEdges: {} };
+let selectedAlgo  = 'bfs';
+let selectedNodeId = null;
+let traceSpeed    = 3;
+let animFrame     = null;
+let isRunning     = false;
+
+// ═══════════════════════════════════════════════════════════════════
+//  GRAPH STORE (JS port)
+// ═══════════════════════════════════════════════════════════════════
+function initGraph() {
+  graph = { nodes: {}, outEdges: {}, inEdges: {} };
+}
+
+function addNode(id, type, name, host, meta={}) {
+  if (graph.nodes[id]) return;
+  graph.nodes[id] = { id, type: type.toLowerCase(), name, host, meta };
+  graph.outEdges[id] = [];
+  graph.inEdges[id]  = [];
+}
+
+function addEdge(srcId, tgtId, action, timestamp=null, eventId=null) {
+  if (!graph.nodes[srcId] || !graph.nodes[tgtId]) return;
+  const edge = { srcId, tgtId, action, timestamp, eventId };
+  graph.outEdges[srcId].push(edge);
+  graph.inEdges[tgtId].push(edge);
+}
+
+function getNeighbors(nodeId, actionFilter=null) {
+  const edges = graph.outEdges[nodeId] || [];
+  return edges.filter(e => !actionFilter || e.action === actionFilter)
+              .map(e => graph.nodes[e.tgtId]).filter(Boolean);
+}
+
+function getEdges(nodeId, actionFilter=null) {
+  return (graph.outEdges[nodeId] || []).filter(e => !actionFilter || e.action === actionFilter);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  LOG PARSER
+// ═══════════════════════════════════════════════════════════════════
+function parseJSON(data) {
+  initGraph();
+  const events = data.events || [];
+  let ok = 0, skipped = 0;
+  events.forEach((ev, i) => {
+    const { event_id, timestamp, action, source, target } = ev;
+    if (!source || !target || !action) { skipped++; return; }
+    addNode(source.id, source.type, source.name, source.host);
+    addNode(target.id, target.type, target.name, target.host);
+    addEdge(source.id, target.id, action.toUpperCase(), timestamp, event_id);
+    ok++;
+  });
+  return { ok, skipped };
+}
+
+function parseCSV(text) {
+  initGraph();
+  const lines = text.trim().split('\n');
+  const headers = lines[0].split(',').map(h => h.trim());
+  let ok = 0, skipped = 0;
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(',').map(c => c.trim());
+    const row = {};
+    headers.forEach((h, j) => row[h] = cols[j] || '');
+    if (!row.src_id || !row.tgt_id || !row.action) { skipped++; continue; }
+    addNode(row.src_id, row.src_type, row.src_name, row.src_host);
+    addNode(row.tgt_id, row.tgt_type, row.tgt_name, row.tgt_host);
+    addEdge(row.src_id, row.tgt_id, row.action.toUpperCase(), row.timestamp, row.event_id);
+    ok++;
+  }
+  return { ok, skipped };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  SAMPLE DATA
+// ═══════════════════════════════════════════════════════════════════
+const SAMPLE_LOG = {
+  events: [
+    {event_id:'evt_001',timestamp:'10:30:00',action:'SPAWNED',source:{type:'process',id:'proc_001',name:'explorer.exe',host:'DESKTOP-ABC'},target:{type:'process',id:'proc_002',name:'powershell.exe',host:'DESKTOP-ABC'}},
+    {event_id:'evt_002',timestamp:'10:30:05',action:'LOGGED_INTO',source:{type:'user',id:'user_001',name:'ALICE',host:'DESKTOP-ABC'},target:{type:'host',id:'host_001',name:'DESKTOP-ABC',host:'DESKTOP-ABC'}},
+    {event_id:'evt_003',timestamp:'10:30:10',action:'SPAWNED',source:{type:'process',id:'proc_002',name:'powershell.exe',host:'DESKTOP-ABC'},target:{type:'process',id:'proc_003',name:'cmd.exe',host:'DESKTOP-ABC'}},
+    {event_id:'evt_004',timestamp:'10:30:15',action:'WROTE_TO',source:{type:'process',id:'proc_002',name:'powershell.exe',host:'DESKTOP-ABC'},target:{type:'file',id:'file_001',name:'malware.exe',host:'DESKTOP-ABC'}},
+    {event_id:'evt_005',timestamp:'10:30:20',action:'CONNECTED_TO',source:{type:'process',id:'proc_002',name:'powershell.exe',host:'DESKTOP-ABC'},target:{type:'network',id:'net_001',name:'45.33.22.11:80',host:'EXTERNAL'}},
+    {event_id:'evt_006',timestamp:'10:30:25',action:'SPAWNED',source:{type:'file',id:'file_001',name:'malware.exe',host:'DESKTOP-ABC'},target:{type:'process',id:'proc_004',name:'ransomware.exe',host:'DESKTOP-ABC'}},
+    {event_id:'evt_007',timestamp:'10:30:30',action:'SPAWNED',source:{type:'process',id:'proc_003',name:'cmd.exe',host:'DESKTOP-ABC'},target:{type:'process',id:'proc_005',name:'whoami.exe',host:'DESKTOP-ABC'}},
+    {event_id:'evt_008',timestamp:'10:30:35',action:'LOGGED_INTO',source:{type:'user',id:'user_002',name:'BOB',host:'DESKTOP-ABC'},target:{type:'host',id:'host_001',name:'DESKTOP-ABC',host:'DESKTOP-ABC'}},
+    {event_id:'evt_009',timestamp:'10:30:40',action:'READ_FILE',source:{type:'process',id:'proc_004',name:'ransomware.exe',host:'DESKTOP-ABC'},target:{type:'file',id:'file_002',name:'secrets.txt',host:'DESKTOP-ABC'}},
+    {event_id:'evt_010',timestamp:'10:30:45',action:'CONNECTED_TO',source:{type:'process',id:'proc_004',name:'ransomware.exe',host:'DESKTOP-ABC'},target:{type:'network',id:'net_002',name:'192.168.1.50:445',host:'SERVER-DB'}},
+    {event_id:'evt_011',timestamp:'10:30:50',action:'LOGGED_INTO',source:{type:'user',id:'user_003',name:'CHARLIE',host:'SERVER-DB'},target:{type:'host',id:'host_002',name:'SERVER-DB',host:'SERVER-DB'}},
+    {event_id:'evt_012',timestamp:'10:30:55',action:'DOWNLOADED',source:{type:'network',id:'net_001',name:'45.33.22.11:80',host:'EXTERNAL'},target:{type:'file',id:'file_003',name:'payload.ps1',host:'DESKTOP-ABC'}},
+    {event_id:'evt_013',timestamp:'10:31:00',action:'MODIFIED_PERMISSIONS',source:{type:'process',id:'proc_004',name:'ransomware.exe',host:'DESKTOP-ABC'},target:{type:'file',id:'file_002',name:'secrets.txt',host:'DESKTOP-ABC'}},
+    {event_id:'evt_014',timestamp:'10:31:05',action:'DELETED',source:{type:'process',id:'proc_003',name:'cmd.exe',host:'DESKTOP-ABC'},target:{type:'file',id:'file_004',name:'log_cleaner.bat',host:'DESKTOP-ABC'}},
+    {event_id:'evt_015',timestamp:'10:31:10',action:'CONNECTED_TO',source:{type:'process',id:'proc_005',name:'whoami.exe',host:'DESKTOP-ABC'},target:{type:'network',id:'net_003',name:'10.0.0.1:22',host:'INTERNAL-GW'}},
+  ]
+};
+
+// ═══════════════════════════════════════════════════════════════════
+//  CANVAS GRAPH RENDERER
+// ═══════════════════════════════════════════════════════════════════
+const canvas = document.getElementById('graph-canvas');
+const ctx    = canvas.getContext('2d');
+
+let positions = {};   // nodeId -> {x, y}
+let highlight = {};   // nodeId -> { color, ring }
+let activeEdges = new Set(); // "srcId->tgtId"
+let view = { x: 0, y: 0, scale: 1 };
+let dragging = false, lastMouse = null;
+
+function resizeCanvas() {
+  const panel = document.getElementById('graph-panel');
+  canvas.width  = panel.clientWidth;
+  canvas.height = panel.clientHeight - 34; // minus header
+  drawGraph();
+}
+
+window.addEventListener('resize', resizeCanvas);
+
+function layoutGraph() {
+  const nodeIds = Object.keys(graph.nodes);
+  if (!nodeIds.length) return;
+  positions = {};
+
+  // Force-directed layout (simple spring)
+  const W = canvas.width, H = canvas.height;
+  // Init in circle
+  nodeIds.forEach((id, i) => {
+    const angle = (2 * Math.PI * i) / nodeIds.length;
+    const r = Math.min(W, H) * 0.32;
+    positions[id] = { x: W/2 + r * Math.cos(angle), y: H/2 + r * Math.sin(angle) };
+  });
+
+  // Simulate forces
+  for (let iter = 0; iter < 180; iter++) {
+    const forces = {};
+    nodeIds.forEach(id => forces[id] = { x: 0, y: 0 });
+
+    // Repulsion
+    for (let a = 0; a < nodeIds.length; a++) {
+      for (let b = a+1; b < nodeIds.length; b++) {
+        const idA = nodeIds[a], idB = nodeIds[b];
+        const dx = positions[idB].x - positions[idA].x;
+        const dy = positions[idB].y - positions[idA].y;
+        const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+        const force = 6000 / (dist * dist);
+        forces[idA].x -= force * dx / dist;
+        forces[idA].y -= force * dy / dist;
+        forces[idB].x += force * dx / dist;
+        forces[idB].y += force * dy / dist;
+      }
+    }
+
+    // Attraction along edges
+    nodeIds.forEach(id => {
+      (graph.outEdges[id] || []).forEach(edge => {
+        const a = positions[id], b = positions[edge.tgtId];
+        if (!a || !b) return;
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+        const force = dist * 0.025;
+        forces[id].x        += force * dx / dist;
+        forces[id].y        += force * dy / dist;
+        forces[edge.tgtId].x -= force * dx / dist;
+        forces[edge.tgtId].y -= force * dy / dist;
+      });
+    });
+
+    // Apply
+    nodeIds.forEach(id => {
+      positions[id].x = Math.max(50, Math.min(W-50, positions[id].x + forces[id].x * 0.3));
+      positions[id].y = Math.max(50, Math.min(H-50, positions[id].y + forces[id].y * 0.3));
+    });
+  }
+}
+
+function drawGraph() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.save();
+  ctx.translate(view.x, view.y);
+  ctx.scale(view.scale, view.scale);
+
+  const nodeIds = Object.keys(graph.nodes);
+  if (!nodeIds.length) {
+    ctx.restore();
+    return;
+  }
+
+  // Draw edges
+  nodeIds.forEach(id => {
+    (graph.outEdges[id] || []).forEach(edge => {
+      const a = positions[id], b = positions[edge.tgtId];
+      if (!a || !b) return;
+      const key = `${id}->${edge.tgtId}`;
+      const isActive = activeEdges.has(key);
+      const col = isActive ? '#ffa502' : '#1a2d4a';
+      const lw  = isActive ? 2.5 : 1;
+
+      ctx.beginPath();
+      ctx.strokeStyle = col;
+      ctx.lineWidth = lw;
+      ctx.globalAlpha = isActive ? 1 : 0.6;
+
+      // Slightly curved line
+      const mx = (a.x + b.x) / 2 - (b.y - a.y) * 0.05;
+      const my = (a.y + b.y) / 2 + (b.x - a.x) * 0.05;
+      ctx.moveTo(a.x, a.y);
+      ctx.quadraticCurveTo(mx, my, b.x, b.y);
+      ctx.stroke();
+
+      // Arrowhead
+      const angle = Math.atan2(b.y - my, b.x - mx);
+      const r = 13;
+      const ax = b.x - r * Math.cos(angle);
+      const ay = b.y - r * Math.sin(angle);
+      ctx.beginPath();
+      ctx.fillStyle = col;
+      ctx.moveTo(ax + 6*Math.cos(angle), ay + 6*Math.sin(angle));
+      ctx.lineTo(ax - 4*Math.cos(angle-1.2), ay - 4*Math.sin(angle-1.2));
+      ctx.lineTo(ax - 4*Math.cos(angle+1.2), ay - 4*Math.sin(angle+1.2));
+      ctx.closePath();
+      ctx.fill();
+
+      // Label on active edges
+      if (isActive) {
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#ffa502';
+        ctx.font = '8px Share Tech Mono, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(edge.action, mx, my - 4);
+      }
+
+      ctx.globalAlpha = 1;
+    });
+  });
+
+  // Draw nodes
+  nodeIds.forEach(id => {
+    const pos = positions[id];
+    if (!pos) return;
+    const node  = graph.nodes[id];
+    const color = TYPE_COLORS[node.type] || '#888';
+    const hi    = highlight[id];
+    const r     = 13;
+    const isSelected = id === selectedNodeId;
+
+    ctx.globalAlpha = 1;
+
+    // Outer ring for highlighted nodes
+    if (hi) {
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, r + 6, 0, Math.PI*2);
+      ctx.strokeStyle = hi.color;
+      ctx.lineWidth   = 2;
+      ctx.globalAlpha = 0.5;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    // Selected ring
+    if (isSelected) {
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, r + 4, 0, Math.PI*2);
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth   = 1.5;
+      ctx.stroke();
+    }
+
+    // Node circle
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, r, 0, Math.PI*2);
+    const grad = ctx.createRadialGradient(pos.x-3, pos.y-3, 2, pos.x, pos.y, r);
+    grad.addColorStop(0, color + 'cc');
+    grad.addColorStop(1, color + '44');
+    ctx.fillStyle = hi ? hi.color + 'bb' : grad;
+    ctx.fill();
+    ctx.strokeStyle = hi ? hi.color : color + '99';
+    ctx.lineWidth   = 1.5;
+    ctx.stroke();
+
+    // Node label
+    ctx.fillStyle = '#ffffff';
+    ctx.font      = `bold 8px Share Tech Mono, monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText(node.name.length > 14 ? node.name.slice(0,13)+'…' : node.name, pos.x, pos.y + 22);
+
+    // Type label
+    ctx.fillStyle = color;
+    ctx.font      = `7px Rajdhani, sans-serif`;
+    ctx.fillText(`[${node.type}]`, pos.x, pos.y + 31);
+  });
+
+  ctx.restore();
+}
+
+// Pan & zoom
+canvas.addEventListener('mousedown', e => { dragging = true; lastMouse = { x: e.clientX, y: e.clientY }; });
+canvas.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  view.x += e.clientX - lastMouse.x;
+  view.y += e.clientY - lastMouse.y;
+  lastMouse = { x: e.clientX, y: e.clientY };
+  drawGraph();
+});
+canvas.addEventListener('mouseup',   () => dragging = false);
+canvas.addEventListener('mouseleave',() => dragging = false);
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.1 : 0.9;
+  view.scale *= factor;
+  drawGraph();
+}, { passive: false });
+
+canvas.addEventListener('click', e => {
+  if (!Object.keys(graph.nodes).length) return;
+  const rect  = canvas.getBoundingClientRect();
+  const mx    = (e.clientX - rect.left - view.x) / view.scale;
+  const my    = (e.clientY - rect.top  - view.y) / view.scale;
+  let closest = null, closestDist = 20;
+  Object.keys(positions).forEach(id => {
+    const p = positions[id];
+    const d = Math.sqrt((p.x-mx)**2 + (p.y-my)**2);
+    if (d < closestDist) { closest = id; closestDist = d; }
+  });
+  if (closest) selectNode(closest);
+});
+
+function zoom(f) { view.scale *= f; drawGraph(); }
+function resetView() { view = { x: 0, y: 0, scale: 1 }; drawGraph(); }
+
+// ═══════════════════════════════════════════════════════════════════
+//  UI HELPERS
+// ═══════════════════════════════════════════════════════════════════
+function selectAlgo(name, btn) {
+  selectedAlgo = name;
+  document.querySelectorAll('.algo-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('hdr-algo').textContent = name.toUpperCase();
+  document.getElementById('heuristicSection').style.display = name === 'astar' ? 'block' : 'none';
+}
+
+function selectNode(id) {
+  selectedNodeId = id;
+  document.getElementById('nodeSelect').value = id;
+  document.getElementById('runBtn').disabled = false;
+  document.querySelectorAll('.node-chip').forEach(c => {
+    c.classList.toggle('selected', c.dataset.id === id);
+  });
+  highlight = {};
+  highlight[id] = { color: '#ffffff' };
+  drawGraph();
+}
+
+function updateSpeed(v) {
+  traceSpeed = parseInt(v);
+  document.getElementById('speedVal').textContent = v;
+}
+
+function updateHeaderStats() {
+  document.getElementById('hdr-nodes').textContent = Object.keys(graph.nodes).length;
+  document.getElementById('hdr-edges').textContent = Object.values(graph.outEdges).reduce((a,b)=>a+b.length,0);
+}
+
+function populateNodeList() {
+  const list    = document.getElementById('nodeList');
+  const select  = document.getElementById('nodeSelect');
+  list.innerHTML = '';
+  select.innerHTML = '<option value="">— select a node —</option>';
+
+  Object.values(graph.nodes).forEach(n => {
+    const color = TYPE_COLORS[n.type] || '#888';
+    const chip = document.createElement('div');
+    chip.className = 'node-chip';
+    chip.dataset.id = n.id;
+    chip.innerHTML = `
+      <span class="type-dot" style="background:${color}"></span>
+      <span class="node-chip-name">${n.name}</span>
+      <span class="node-chip-type">${n.type}</span>`;
+    chip.onclick = () => selectNode(n.id);
+    list.appendChild(chip);
+
+    const opt = document.createElement('option');
+    opt.value = n.id;
+    opt.textContent = `${n.name} [${n.type}]`;
+    select.appendChild(opt);
+  });
+
+  document.getElementById('nodeSelect').onchange = function() {
+    if (this.value) selectNode(this.value);
+  };
+}
+
+function onGraphLoaded(res) {
+  populateNodeList();
+  updateHeaderStats();
+  layoutGraph();
+  document.getElementById('graphLegend').style.display = 'flex';
+  document.getElementById('graphHint').textContent = 'drag to pan  •  scroll to zoom  •  click node to select';
+  document.getElementById('hdr-status').textContent = 'READY';
+  document.getElementById('hdr-status').style.color = 'var(--accent3)';
+  addTrace('info', `Graph loaded — ${Object.keys(graph.nodes).length} nodes, ${Object.values(graph.outEdges).reduce((a,b)=>a+b.length,0)} edges`);
+  addTrace('info', `Skipped ${res.skipped} malformed events`);
+  highlight = {};
+  activeEdges.clear();
+  drawGraph();
+}
+
+function loadSampleLog() {
+  const res = parseJSON(SAMPLE_LOG);
+  onGraphLoaded(res);
+  document.getElementById('logDrop').classList.add('active');
+}
+
+document.getElementById('fileInput').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    let res;
+    if (file.name.endsWith('.json')) {
+      res = parseJSON(JSON.parse(ev.target.result));
+    } else {
+      res = parseCSV(ev.target.result);
+    }
+    onGraphLoaded(res);
+    document.getElementById('logDrop').classList.add('active');
+  };
+  reader.readAsText(file);
+});
+
+// ═══════════════════════════════════════════════════════════════════
+//  TRACE LOG
+// ═══════════════════════════════════════════════════════════════════
+let traceCount = 0;
+function addTrace(type, text) {
+  const log   = document.getElementById('trace-log');
+  const line  = document.createElement('div');
+  line.className = `trace-line ${type}`;
+  traceCount++;
+  line.innerHTML = `<span class="trace-idx">${traceCount}</span><span class="trace-text">${text}</span>`;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+
+function clearTrace() {
+  document.getElementById('trace-log').innerHTML = '';
+  traceCount = 0;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  RESULTS PANEL
+// ═══════════════════════════════════════════════════════════════════
+function setResults(html) {
+  document.getElementById('results-content').innerHTML = html;
+}
+
+function nodeTag(nodeId, forcedColor=null) {
+  const n = graph.nodes[nodeId];
+  if (!n) return `<span class="path-node" style="border-color:#888;color:#888">${nodeId}</span>`;
+  const col = forcedColor || TYPE_COLORS[n.type] || '#888';
+  return `<span class="path-node" style="border-color:${col};color:${col}">${n.name}</span>`;
+}
+
+function actionTag(action) {
+  const col = { SPAWNED:'#00d4ff', WROTE_TO:'#ff4757', CONNECTED_TO:'#ff4757',
+                DOWNLOADED:'#ffa502', LOGGED_INTO:'#2ed573', READ_FILE:'#a29bfe',
+                DELETED:'#ff4757', MODIFIED_PERMISSIONS:'#ffa502' }[action] || '#888';
+  return `<span class="chain-action" style="background:${col}22;color:${col};border:1px solid ${col}44">${action}</span>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  ANIMATED STEP EXECUTION HELPER
+// ═══════════════════════════════════════════════════════════════════
+const SPEED_MS = [0, 800, 400, 180, 80, 20]; // index = speed 1-5
+
+async function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+async function animateSteps(steps) {
+  // steps = array of { type, nodeId?, edgeSrc?, edgeTgt?, text }
+  for (const step of steps) {
+    if (step.nodeId) {
+      highlight[step.nodeId] = { color: step.color || '#ffa502' };
+    }
+    if (step.edgeSrc && step.edgeTgt) {
+      activeEdges.add(`${step.edgeSrc}->${step.edgeTgt}`);
+    }
+    addTrace(step.traceType || 'visit', step.text);
+    drawGraph();
+    await sleep(SPEED_MS[traceSpeed] || 180);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  BFS IMPLEMENTATION (animated)
+// ═══════════════════════════════════════════════════════════════════
+async function runBFS(startId, maxDepth) {
+  const visited    = new Set();
+  const queue      = [[startId, 0, [startId]]];
+  const depthMap   = { [startId]: 0 };
+  const paths      = { [startId]: [startId] };
+  const byDepth    = {};
+
+  visited.add(startId);
+
+  addTrace('info', `<span class="kw">BFS</span> start=<span class="node-ref">${graph.nodes[startId]?.name}</span>  max_depth=${maxDepth}`);
+  highlight[startId] = { color: '#ffffff' };
+  drawGraph();
+  await sleep(SPEED_MS[traceSpeed]);
+
+  while (queue.length) {
+    const [currId, depth, path] = queue.shift();
+    const curr = graph.nodes[currId];
+    const color = depth === 0 ? '#ffffff' : '#00d4ff';
+    highlight[currId] = { color };
+    addTrace('visit', `<span class="kw">[depth ${depth}]</span> visit <span class="node-ref">${curr?.name}</span>`);
+    drawGraph();
+    await sleep(SPEED_MS[traceSpeed]);
+
+    byDepth[depth] = byDepth[depth] || {};
+    if (depth > 0) {
+      byDepth[depth][curr.type] = byDepth[depth][curr.type] || [];
+      byDepth[depth][curr.type].push(curr);
+    }
+
+    if (depth >= maxDepth) {
+      addTrace('skip', `  └─ <span class="skip-ref">max depth, not expanding</span>`);
+      continue;
+    }
+
+    const edges = graph.outEdges[currId] || [];
+    for (const edge of edges) {
+      const nId = edge.tgtId;
+      if (visited.has(nId)) {
+        addTrace('skip', `  ↩ <span class="skip-ref">[${edge.action}] ${graph.nodes[nId]?.name} — already visited</span>`);
+        continue;
+      }
+      visited.add(nId);
+      depthMap[nId] = depth + 1;
+      const newPath = [...path, nId];
+      paths[nId] = newPath;
+      queue.push([nId, depth+1, newPath]);
+      activeEdges.add(`${currId}->${nId}`);
+      highlight[nId] = { color: '#ffa50288' };
+      addTrace('push', `  ↳ <span class="kw">[${edge.action}]</span> discovered <span class="node-ref">${graph.nodes[nId]?.name}</span>`);
+      drawGraph();
+      await sleep(SPEED_MS[traceSpeed] * 0.5);
+    }
+  }
+
+  // Render results
+  const nodeCount = Object.keys(visited).length - 1;
+  addTrace('goal', `<span class="goal-ref">BFS complete — ${nodeCount} entities discovered</span>`);
+
+  let html = `<div class="result-card">
+    <div class="result-card-header" style="color:var(--accent)">
+      <span>📡</span> BLAST RADIUS — <span class="node-ref" style="color:var(--accent)">
+        ${graph.nodes[startId]?.name}</span>
+    </div>
+    <div class="result-card-body">`;
+
+  Object.entries(byDepth).forEach(([depth, types]) => {
+    html += `<div class="depth-section">
+      <div class="depth-title">DEPTH ${depth} ${depth == 1 ? '— DIRECT CONNECTIONS' : '— INDIRECT'}</div>
+      <div class="depth-nodes">`;
+    Object.entries(types).forEach(([type, nodes]) => {
+      nodes.forEach(n => {
+        const col = TYPE_COLORS[type] || '#888';
+        html += `<span class="depth-node" style="border-color:${col}55;color:${col}">${n.name}</span>`;
+      });
+    });
+    html += `</div></div>`;
+  });
+
+  html += `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);
+    font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--dim)">
+    Total entities discovered: <span style="color:var(--accent)">${nodeCount}</span>
+  </div></div></div>`;
+
+  setResults(html);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  DFS IMPLEMENTATION (animated)
+// ═══════════════════════════════════════════════════════════════════
+async function runDFS(startId, maxDepth) {
+  // Iterative DFS with per-path cycle tracking
+  const stack = [[startId, 0, [startId], new Set([startId])]];
+  const firstSeen = new Set();
+  const pathsFound = [];
+  let expansions = 0;
+
+  addTrace('info', `<span class="kw">DFS</span> start=<span class="node-ref">${graph.nodes[startId]?.name}</span>  max_depth=${maxDepth}`);
+  highlight[startId] = { color: '#2ed573' };
+  drawGraph();
+  await sleep(SPEED_MS[traceSpeed]);
+
+  while (stack.length) {
+    const [currId, depth, path, visitedOnPath] = stack.pop();
+    expansions++;
+
+    const curr = graph.nodes[currId];
+    if (!firstSeen.has(currId)) {
+      firstSeen.add(currId);
+      highlight[currId] = { color: '#2ed573' };
+    }
+
+    addTrace('visit', `${'&nbsp;'.repeat(depth*2)}<span class="kw">[d${depth}]</span> expand <span class="node-ref">${curr?.name}</span>`);
+    drawGraph();
+    await sleep(SPEED_MS[traceSpeed]);
+
+    if (depth >= maxDepth) {
+      addTrace('skip', `${'&nbsp;'.repeat(depth*2)}└─ <span class="skip-ref">max depth, backtrack</span>`);
+      pathsFound.push([...path]);
+      continue;
+    }
+
+    const edges = graph.outEdges[currId] || [];
+    let hasUnvisited = false;
+
+    for (const edge of [...edges].reverse()) { // reverse so stack pops in correct order
+      const nId = edge.tgtId;
+      if (visitedOnPath.has(nId)) {
+        addTrace('skip', `${'&nbsp;'.repeat((depth+1)*2)}↩ <span class="skip-ref">[${edge.action}] ${graph.nodes[nId]?.name} — cycle</span>`);
+        continue;
+      }
+      hasUnvisited = true;
+      activeEdges.add(`${currId}->${nId}`);
+      addTrace('push', `${'&nbsp;'.repeat((depth+1)*2)}→ <span class="kw">[${edge.action}]</span> push <span class="node-ref">${graph.nodes[nId]?.name}</span>`);
+      const newVisited = new Set(visitedOnPath);
+      newVisited.add(nId);
+      stack.push([nId, depth+1, [...path, nId], newVisited]);
+      drawGraph();
+      await sleep(SPEED_MS[traceSpeed] * 0.4);
+    }
+
+    if (!hasUnvisited) {
+      pathsFound.push([...path]);
+      addTrace('skip', `${'&nbsp;'.repeat(depth*2)}└─ <span class="skip-ref">leaf node</span>`);
+    }
+  }
+
+  const chains = pathsFound.filter(p => p.length > 1).sort((a,b) => b.length - a.length);
+  addTrace('goal', `<span class="goal-ref">DFS complete — ${chains.length} chains found, ${expansions} expansions</span>`);
+
+  let html = `<div class="result-card">
+    <div class="result-card-header" style="color:var(--accent3)">
+      <span>🔗</span> ATTACK CHAINS from <span style="color:var(--accent3)">${graph.nodes[startId]?.name}</span>
+    </div><div class="result-card-body">`;
+
+  chains.slice(0,8).forEach((pathIds, i) => {
+    html += `<div style="margin-bottom:10px">
+      <div style="font-size:10px;color:var(--dim);font-family:'Share Tech Mono',monospace;margin-bottom:4px">
+        CHAIN ${i+1} (${pathIds.length} nodes)
+      </div>`;
+
+    for (let j = 0; j < pathIds.length - 1; j++) {
+      const srcId = pathIds[j], tgtId = pathIds[j+1];
+      const edge  = (graph.outEdges[srcId] || []).find(e => e.tgtId === tgtId);
+      const ts    = edge?.timestamp || '';
+      const src   = graph.nodes[srcId];
+      const tgt   = graph.nodes[tgtId];
+      html += `<div class="chain-step">
+        <span class="chain-ts">${ts}</span>
+        <span style="color:${TYPE_COLORS[src?.type]||'#888'};font-size:11px;font-family:'Share Tech Mono',monospace">${src?.name}</span>
+        ${actionTag(edge?.action || '?')}
+        <span style="color:${TYPE_COLORS[tgt?.type]||'#888'};font-size:11px;font-family:'Share Tech Mono',monospace">${tgt?.name}</span>
+      </div>`;
+    }
+    html += `</div>`;
+  });
+
+  html += `<div style="margin-top:6px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--dim)">
+    Expansions: <span style="color:var(--accent3)">${expansions}</span>
+  </div></div></div>`;
+  setResults(html);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  UCS IMPLEMENTATION (animated)
+// ═══════════════════════════════════════════════════════════════════
+// Mini priority queue
+class MinHeap {
+  constructor() { this.data = []; }
+  push(item) {
+    this.data.push(item);
+    this._bubbleUp(this.data.length - 1);
+  }
+  pop() {
+    const top = this.data[0];
+    const last = this.data.pop();
+    if (this.data.length) { this.data[0] = last; this._sinkDown(0); }
+    return top;
+  }
+  get size() { return this.data.length; }
+  _bubbleUp(i) {
+    while (i > 0) {
+      const p = Math.floor((i-1)/2);
+      if (this.data[p].f <= this.data[i].f) break;
+      [this.data[p], this.data[i]] = [this.data[i], this.data[p]];
+      i = p;
+    }
+  }
+  _sinkDown(i) {
+    const n = this.data.length;
+    while (true) {
+      let best = i;
+      const l = 2*i+1, r = 2*i+2;
+      if (l < n && this.data[l].f < this.data[best].f) best = l;
+      if (r < n && this.data[r].f < this.data[best].f) best = r;
+      if (best === i) break;
+      [this.data[best], this.data[i]] = [this.data[i], this.data[best]];
+      i = best;
+    }
+  }
+}
+
+function isSuspicious(nodeId) {
+  const n = graph.nodes[nodeId];
+  if (!n) return false;
+  const nm = n.name.toLowerCase();
+  if (n.type === 'process' && SUSPICIOUS_PROC.has(nm)) return true;
+  if (n.type === 'file' && SUSPICIOUS_EXT.some(e => nm.endsWith(e))) return true;
+  if (n.type === 'network') return true;
+  return false;
+}
+
+function getSuspiciousTargets(startId) {
+  return Object.keys(graph.nodes).filter(id => id !== startId && isSuspicious(id));
+}
+
+async function runUCS(startId, goalIds) {
+  const heap = new MinHeap();
+  heap.push({ f: 0, g: 0, id: startId, path: [startId] });
+  const bestG = { [startId]: 0 };
+  let explored = 0;
+
+  addTrace('info', `<span class="kw">UCS</span> start=<span class="node-ref">${graph.nodes[startId]?.name}</span>  goals=${goalIds.length}`);
+
+  while (heap.size) {
+    const { g, id, path } = heap.pop();
+    explored++;
+    const curr = graph.nodes[id];
+
+    addTrace('pop', `<span class="kw">[pop]</span> cost=<span class="cost-ref">${g.toFixed(1)}</span>  <span class="node-ref">${curr?.name}</span>`);
+    highlight[id] = { color: '#a29bfe' };
+    drawGraph();
+    await sleep(SPEED_MS[traceSpeed]);
+
+    if (goalIds.includes(id)) {
+      addTrace('goal', `<span class="goal-ref">★ GOAL ${curr?.name}  cost=${g.toFixed(1)}</span>`);
+      return { path, cost: g, explored };
+    }
+
+    if (g > (bestG[id] ?? Infinity) + 0.001) {
+      addTrace('skip', `  ↩ <span class="skip-ref">stale entry, skip</span>`);
+      continue;
+    }
+
+    for (const edge of (graph.outEdges[id] || [])) {
+      const edgeCost = COST_CONFIG[edge.action] || 1;
+      const newG     = g + edgeCost;
+      if (newG < (bestG[edge.tgtId] ?? Infinity)) {
+        bestG[edge.tgtId] = newG;
+        heap.push({ f: newG, g: newG, id: edge.tgtId, path: [...path, edge.tgtId] });
+        activeEdges.add(`${id}->${edge.tgtId}`);
+        addTrace('push', `  → <span class="kw">[${edge.action}, cost=${edgeCost}]</span> <span class="node-ref">${graph.nodes[edge.tgtId]?.name}</span>  cum=<span class="cost-ref">${newG.toFixed(1)}</span>`);
+      }
+    }
+    drawGraph();
+    await sleep(SPEED_MS[traceSpeed] * 0.5);
+  }
+  return null;
+}
+
+// A* heuristic
+function heuristicSuspicious(nodeId, goalSet) {
+  if (goalSet.has(nodeId)) return 0;
+  const n = graph.nodes[nodeId];
+  if (!n) return 1;
+  const nm = n.name.toLowerCase();
+  if (n.type === 'process' && ['powershell','cmd','wscript','nc','ransomware','malware','whoami'].some(p => nm.includes(p))) return 0;
+  if (n.type === 'file' && nm.endsWith('.exe')) return 0;
+  if (n.type === 'network') return 0;
+  return 1;
+}
+
+async function runAStar(startId, goalIds, heuristicName) {
+  const goalSet  = new Set(goalIds);
+  const hFn      = heuristicName === 'hop_count'
+    ? (id) => goalIds.length ? 1 : 0   // simplified for browser
+    : (id) => heuristicSuspicious(id, goalSet);
+
+  const heap = new MinHeap();
+  const h0   = hFn(startId);
+  heap.push({ f: h0, g: 0, h: h0, id: startId, path: [startId] });
+  const bestG = { [startId]: 0 };
+  let explored = 0;
+
+  addTrace('info', `<span class="kw">A*</span> start=<span class="node-ref">${graph.nodes[startId]?.name}</span>  heuristic=${heuristicName}`);
+
+  while (heap.size) {
+    const { f, g, h, id, path } = heap.pop();
+    explored++;
+    const curr = graph.nodes[id];
+
+    addTrace('pop', `<span class="kw">[pop]</span> f=<span class="cost-ref">${f.toFixed(2)}</span>  g=<span class="cost-ref">${g.toFixed(1)}</span>  h=<span class="cost-ref">${h.toFixed(2)}</span>  <span class="node-ref">${curr?.name}</span>`);
+    highlight[id] = { color: '#a29bfe' };
+    drawGraph();
+    await sleep(SPEED_MS[traceSpeed]);
+
+    if (goalSet.has(id)) {
+      addTrace('goal', `<span class="goal-ref">★ GOAL ${curr?.name}  g=${g.toFixed(1)}</span>`);
+      return { path, cost: g, explored };
+    }
+
+    if (g > (bestG[id] ?? Infinity) + 0.001) {
+      addTrace('skip', `  ↩ <span class="skip-ref">stale</span>`);
+      continue;
+    }
+
+    for (const edge of (graph.outEdges[id] || [])) {
+      const edgeCost = COST_CONFIG[edge.action] || 1;
+      const newG     = g + edgeCost;
+      const newH     = hFn(edge.tgtId);
+      const newF     = newG + newH;
+      if (newG < (bestG[edge.tgtId] ?? Infinity)) {
+        bestG[edge.tgtId] = newG;
+        heap.push({ f: newF, g: newG, h: newH, id: edge.tgtId, path: [...path, edge.tgtId] });
+        activeEdges.add(`${id}->${edge.tgtId}`);
+        addTrace('push', `  → <span class="kw">[${edge.action}]</span> <span class="node-ref">${graph.nodes[edge.tgtId]?.name}</span>  g=<span class="cost-ref">${newG.toFixed(1)}</span>  h=<span class="cost-ref">${newH.toFixed(2)}</span>  f=<span class="cost-ref">${newF.toFixed(2)}</span>`);
+      }
+    }
+    drawGraph();
+    await sleep(SPEED_MS[traceSpeed] * 0.5);
+  }
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  MAIN RUN DISPATCHER
+// ═══════════════════════════════════════════════════════════════════
+async function runAlgo() {
+  if (isRunning || !selectedNodeId) return;
+  isRunning = true;
+
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('hdr-status').textContent = 'RUNNING';
+  document.getElementById('hdr-status').style.color = 'var(--accent4)';
+  clearTrace();
+  highlight = { [selectedNodeId]: { color: '#ffffff' } };
+  activeEdges.clear();
+  drawGraph();
+
+  const maxDepth = parseInt(document.getElementById('depthSlider').value);
+  const heuristic = document.getElementById('heuristicSelect').value;
+
+  if (selectedAlgo === 'bfs') {
+    await runBFS(selectedNodeId, maxDepth);
+
+  } else if (selectedAlgo === 'dfs') {
+    await runDFS(selectedNodeId, maxDepth);
+
+  } else if (selectedAlgo === 'ucs') {
+    const targets = getSuspiciousTargets(selectedNodeId);
+    if (!targets.length) {
+      addTrace('info', 'No suspicious targets found in graph.');
+      setResults('<div class="empty-state"><div class="empty-icon">⚠️</div><div>No suspicious targets found</div></div>');
+    } else {
+      const results = [];
+      for (const tgt of targets.slice(0,6)) {
+        highlight = { [selectedNodeId]: { color: '#ffffff' } };
+        activeEdges.clear();
+        const res = await runUCS(selectedNodeId, [tgt]);
+        if (res) results.push({ target: graph.nodes[tgt], ...res });
+      }
+      results.sort((a,b) => a.cost - b.cost);
+      let html = `<div class="result-card">
+        <div class="result-card-header" style="color:var(--accent4)">
+          <span>⚡</span> UCS PRIORITIZATION from ${graph.nodes[selectedNodeId]?.name}
+        </div><div class="result-card-body">`;
+      const maxCost = Math.max(...results.map(r => r.cost)) || 1;
+      results.forEach((r, i) => {
+        const susp = r.target.type === 'process' && SUSPICIOUS_PROC.has(r.target.name.toLowerCase());
+        const pri  = susp ? 'HIGH' : r.target.type === 'file' ? 'MEDIUM' : 'LOW';
+        const priC = { HIGH:'#ff4757', MEDIUM:'#ffa502', LOW:'#2ed573' }[pri];
+        const pathNames = r.path.map(id => graph.nodes[id]?.name || id).join(' → ');
+        html += `<div class="priority-row">
+          <span class="priority-badge" style="background:${priC}22;color:${priC};border:1px solid ${priC}44">${pri}</span>
+          <div class="priority-info">
+            <div class="priority-target" style="color:${TYPE_COLORS[r.target.type]||'#888'}">${r.target.name}</div>
+            <div class="priority-cost">cost: ${r.cost.toFixed(1)}  •  nodes explored: ${r.explored}</div>
+            <div style="font-size:9px;color:var(--dim);font-family:'Share Tech Mono',monospace;margin-top:2px">${pathNames}</div>
+            <div class="cost-bar-wrap">
+              <div class="cost-bar" style="width:${(r.cost/maxCost)*100}%;background:${priC}88"></div>
+            </div>
+          </div>
+        </div>`;
+      });
+      html += `</div></div>`;
+      setResults(html);
+    }
+
+  } else if (selectedAlgo === 'astar') {
+    const targets = getSuspiciousTargets(selectedNodeId);
+    if (!targets.length) {
+      addTrace('info', 'No suspicious targets found.');
+      setResults('<div class="empty-state"><div class="empty-icon">⚠️</div><div>No suspicious targets found</div></div>');
+    } else {
+      const ucsResults   = [];
+      const astarResults = [];
+
+      for (const tgt of targets.slice(0,4)) {
+        highlight = { [selectedNodeId]: { color: '#ffffff' } };
+        activeEdges.clear();
+        const ur = await runUCS(selectedNodeId, [tgt]);
+        if (ur) ucsResults.push({ ...ur, tgt });
+
+        highlight = { [selectedNodeId]: { color: '#ffffff' } };
+        activeEdges.clear();
+        const ar = await runAStar(selectedNodeId, [tgt], heuristic);
+        if (ar) astarResults.push({ ...ar, tgt });
+      }
+
+      let html = `<div class="result-card">
+        <div class="result-card-header" style="color:var(--accent5)">
+          <span>✦</span> A* vs UCS — COMPARISON
+        </div><div class="result-card-body">`;
+
+      ucsResults.forEach((ur, i) => {
+        const ar    = astarResults[i];
+        const tgtN  = graph.nodes[ur.tgt];
+        const saving = ar ? Math.round((1 - ar.explored/ur.explored)*100) : 0;
+        html += `<div class="priority-row">
+          <div class="priority-info">
+            <div class="priority-target" style="color:${TYPE_COLORS[tgtN?.type]||'#888'}">${tgtN?.name}</div>
+            <div class="priority-cost">cost: ${ur.cost.toFixed(1)}</div>
+            <div class="compare-bar" style="margin-top:4px">
+              <span class="compare-label">UCS</span>
+              <div class="compare-seg" style="width:${ur.explored*6}px;max-width:100px;background:var(--accent4)88"></div>
+              <span style="font-size:9px;color:var(--accent4);font-family:'Share Tech Mono',monospace">${ur.explored}</span>
+            </div>
+            <div class="compare-bar">
+              <span class="compare-label">A*</span>
+              <div class="compare-seg" style="width:${(ar?.explored||0)*6}px;max-width:100px;background:var(--accent5)88"></div>
+              <span style="font-size:9px;color:var(--accent5);font-family:'Share Tech Mono',monospace">${ar?.explored||'—'}</span>
+              ${saving > 0 ? `<span style="font-size:9px;color:var(--accent3);margin-left:6px">▼ ${saving}% fewer</span>` : ''}
+            </div>
+          </div>
+        </div>`;
+      });
+
+      const totalUCS   = ucsResults.reduce((a,r) => a + r.explored, 0);
+      const totalAStar = astarResults.reduce((a,r) => a + r.explored, 0);
+      const overallSaving = totalUCS ? Math.round((1-totalAStar/totalUCS)*100) : 0;
+
+      html += `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);
+        font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--dim)">
+        Overall A* explored <span style="color:var(--accent3)">${overallSaving}%</span> fewer nodes
+      </div></div></div>`;
+      setResults(html);
+    }
+  }
+
+  document.getElementById('hdr-status').textContent = 'DONE';
+  document.getElementById('hdr-status').style.color = 'var(--accent3)';
+  document.getElementById('runBtn').disabled = false;
+  isRunning = false;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════════
+window.addEventListener('load', () => {
+  resizeCanvas();
+  // Draw empty grid pattern
+  ctx.fillStyle = '#0b1120';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Auto-load sample for quick demo
+  setTimeout(() => {
+    loadSampleLog();
+  }, 400);
+});
+</script>
+</body>
+</html>
